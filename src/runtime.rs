@@ -100,7 +100,7 @@ pub struct Super {
 /// A pointer to the start of a method implementation.
 pub type Imp = extern fn(*mut Object, Sel, ...) -> *mut Object;
 
-#[link(name = "objc")]
+#[link(name = "objc", kind = "dylib")]
 extern {
     pub fn sel_registerName(name: *const c_char) -> Sel;
     pub fn sel_getName(sel: Sel) -> *const c_char;
