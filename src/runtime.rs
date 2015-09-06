@@ -101,7 +101,7 @@ pub struct Super {
 pub type Imp = extern fn(*mut Object, Sel, ...) -> *mut Object;
 
 #[link(name = "objc", kind = "dylib")]
-extern {
+extern "C" {
     pub fn sel_registerName(name: *const c_char) -> Sel;
     pub fn sel_getName(sel: Sel) -> *const c_char;
 
@@ -149,7 +149,7 @@ extern {
     #[cfg(feature="gnustep_runtime")]
     pub fn objc_msg_lookup_sender(receiver: *mut *mut Object, selector: Sel, sender: *mut Object, ...) -> *mut Slot;
     #[cfg(feature="gnustep_runtime")]
-    pub fn objc_slot_lookup_super(sup: *const Super, selector: Sel) -> Slot;
+    pub fn objc_slot_lookup_super(sup: *const Super, selector: Sel) -> *mut Slot;
 }
 
 impl Sel {
@@ -471,7 +471,7 @@ mod tests {
         assert!(method.name().name() == "description");
         assert!(method.arguments_count() == 2);
         assert!(method.return_type() == <*mut Object>::encode());
-        assert!(method.argument_type(1).unwrap() == Sel::encode());
+        assert_eq!(method.argument_type(1).unwrap(), Sel::encode());
 
         let methods = cls.instance_methods();
         assert!(methods.len() > 0);

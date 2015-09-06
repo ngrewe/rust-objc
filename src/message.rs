@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::mem;
-
 use runtime::{Class, Object, Sel, Super, self};
 
 /// Types that may be sent Objective-C messages.
@@ -184,7 +183,7 @@ macro_rules! message_args_impl {
             unsafe fn send_super<T, R>(self, obj: *mut T, superclass: &Class, sel: Sel) -> R
                     where T: Message, R: Any {
                 let sup = Super { receiver: obj as *mut Object, superclass: superclass };
-                let slot = runtime::objc_slot_lookup_super(&sup,sel);
+                let ref slot = *runtime::objc_slot_lookup_super(&sup, sel);
                 let imp_fn = slot.method;
                 let imp_fn: unsafe extern fn(*mut Object, Sel $(, $t)*) -> R =
                     mem::transmute(imp_fn);
