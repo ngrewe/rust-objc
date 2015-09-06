@@ -5,6 +5,29 @@ use id::StrongPtr;
 use runtime::{Class, Object, Sel};
 use {Encode, Encoding};
 
+
+
+
+#[cfg(feature="gnustep_runtime")]
+#[link(name = "gnustep-base", kind = "dylib")]
+extern "C" {
+  fn NSLog(format: *const Object, ...);
+}
+
+#[cfg(feature="gnustep_runtime")]
+#[allow(dead_code)]
+/// This function is dead code and is only present to ensure that
+/// the gnustep-base library get actually linked when the GNUstep
+/// runtime is used. Otherwise. NSObject will be undefined, and
+/// most tests will fail.
+fn log_object(object: &Object) {
+  unsafe {
+    let desc : *mut Object = msg_send![object, description];
+    let o : *const Object = ::std::mem::transmute(desc);
+    NSLog(o);
+  }
+}
+
 pub fn sample_object() -> StrongPtr {
     let cls = Class::get("NSObject").unwrap();
     unsafe {
