@@ -2,7 +2,7 @@
 #include <stdint.h>
 /**
  * This is a mock implementation of NSObject, which will be linked against
- * the tests in order to provide superclass for them.
+ * the tests in order to provide a superclass for them.
  */
 __attribute__((objc_root_class))
 @interface NSObject
