@@ -26,5 +26,5 @@ version = "0.0"
 optional = true
 
 [build-dependencies.gcc]
-git = "https://github.com/ngrewe/gcc-rs.git"
+git = "https://github.com/alexcrichton/gcc-rs.git"
 optional = true
