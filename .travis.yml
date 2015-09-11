@@ -10,13 +10,13 @@ install:
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then mkdir libobjc2/build; pushd libobjc2/build; fi
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then cmake -DCMAKE_INSTALL_PREFIX:PATH=$HOME/libobjc2_staging ../; fi
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then make install; fi
-  - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then export CPATH=$HOME/libobjc2_staging/include:$CPATH; export LIBRARY_PATH=$HOME/libobjc2_staging/lib:$LIBRARY_PATH; LD_LIBRARY_PATH=$HOME/libobjc2_staging/lib:$LD_LIBRARY_PATH fi
+  - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then export CPATH=$HOME/libobjc2_staging/include:$CPATH; export LIBRARY_PATH=$HOME/libobjc2_staging/lib:$LIBRARY_PATH; LD_LIBRARY_PATH=$HOME/libobjc2_staging/lib:$LD_LIBRARY_PATH; fi
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then popd; fi
-
+  - if [ -n "$FEATURE" ]; then export FEATURES="--features $FEATURE"; else export FEATURES=""; fi;
 script:
-  - cargo build --features $FEATURE
-  - cargo test --features $FEATURE
-  - cargo doc --features $FEATURE
+  - cargo build $FEATURES
+  - cargo test $FEATURES
+  - cargo doc $FEATURES
 env:
 notifications:
   email:
