@@ -27,4 +27,5 @@ optional = true
 
 [build-dependencies.gcc]
 git = "https://github.com/alexcrichton/gcc-rs.git"
+rev = "a7bcbe58c605493f769bf45a858d99f4a9926dc1"
 optional = true
