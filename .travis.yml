@@ -7,7 +7,7 @@ sudo: false
 install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then export FEATURE="gnustep_runtime"; export CC="clang"; export CXX="clang++"; else export FEATURE=""; fi
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then git clone https://github.com/gnustep/libobjc2.git; fi
-  - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then mkdir libobjc2/build; pushd libobjc2/build fi
+  - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then mkdir libobjc2/build; pushd libobjc2/build; fi
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then cmake ../; fi
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then make DESTDIR=/usr install; fi
   - if [[ "$FEATURE" == *"gnustep_runtime"* ]]; then popd; fi
