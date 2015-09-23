@@ -105,7 +105,7 @@ fn msg_send_fn<R>() -> unsafe extern fn(*mut Object, Sel, ...) -> R {
     unsafe { mem::transmute(runtime::objc_msgSend) }
 }
 
-#[cfg(all(target_arch = "arm", not(feature ="gnustep_runtime")))]
+#[cfg(all(target_arch = "aarch64", not(feature ="gnustep_runtime")))]
 fn msg_send_super_fn<R>() -> unsafe extern fn(*const Super, Sel, ...) -> R {
     unsafe { mem::transmute(runtime::objc_msgSendSuper) }
 }
