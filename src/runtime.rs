@@ -41,7 +41,7 @@ pub struct Sel {
 
 /// A structure describing a safely cacheable method implementation
 /// in the GNUstep Objective-C runtime.
-#[cfg(feature="gnustep_runtime")]
+#[cfg(feature="gnustep")]
 #[repr(C)]
 pub struct Slot  {
   /// The class to which the slot is attached
@@ -145,9 +145,9 @@ extern "C" {
     pub fn method_setImplementation(method: *mut Method, imp: Imp) -> Imp;
     pub fn method_exchangeImplementations(m1: *mut Method, m2: *mut Method);
 
-    #[cfg(feature="gnustep_runtime")]
+    #[cfg(feature="gnustep")]
     pub fn objc_msg_lookup_sender(receiver: *mut *mut Object, selector: Sel, sender: *mut Object, ...) -> *mut Slot;
-    #[cfg(feature="gnustep_runtime")]
+    #[cfg(feature="gnustep")]
     pub fn objc_slot_lookup_super(sup: *const Super, selector: Sel) -> *mut Slot;
 }
 

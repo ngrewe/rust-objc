@@ -14,7 +14,7 @@ exclude = [".gitignore", ".travis.yml", "ios-tests/**", "xtests/**"]
 
 [features]
 exception = ["objc_exception"]
-gnustep_runtime = [ "test_ns_object/gnustep" ]
+gnustep = [ "test_ns_object/gnustep" ]
 
 [dependencies]
 libc = "0.1"

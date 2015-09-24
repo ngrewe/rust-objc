@@ -8,7 +8,7 @@ use {Encode, Encoding};
 
 
 
-#[cfg(feature="gnustep_runtime")]
+#[cfg(feature="gnustep")]
 #[link(name = "NSObject", kind = "static")]
 extern {
 }
