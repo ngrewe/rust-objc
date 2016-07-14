@@ -38,27 +38,6 @@ pub struct Sel {
     ptr: *const c_void,
 }
 
-
-/// A structure describing a safely cacheable method implementation
-/// in the GNUstep Objective-C runtime.
-#[cfg(feature="gnustep")]
-#[repr(C)]
-pub struct Slot  {
-  /// The class to which the slot is attached
-  pub owner: *const Class,
-  /// The class for which this slot was cached.
-  pub cached_for: *mut Class,
-  /// The type signature of the method
-  pub types: *const c_char,
-  /// The version of the method. Will change if overriden, invalidating
-  /// the cache
-  pub version: c_int,
-  /// The implementation of the method
-  pub method: Imp,
-  /// The associated selector
-  pub selector: Sel
-}
-
 /// A marker type to be embedded into other types just so that they cannot be
 /// constructed externally.
 enum PrivateMarker { }
@@ -81,26 +60,23 @@ pub struct Class {
     _priv: PrivateMarker,
 }
 
+/// A type that represents an Objective-C protocol.
+#[repr(C)]
+pub struct Protocol {
+    _priv: PrivateMarker
+}
+
 /// A type that represents an instance of a class.
 #[repr(C)]
 pub struct Object {
     _priv: PrivateMarker,
 }
 
-/// Specifies the superclass of an instance.
-#[repr(C)]
-pub struct Super {
-    /// Specifies an instance of a class.
-    pub receiver: *mut Object,
-    /// Specifies the particular superclass of the instance to message.
-    pub superclass: *const Class,
-}
-
 /// A pointer to the start of a method implementation.
-pub type Imp = extern fn(*mut Object, Sel, ...) -> *mut Object;
+pub type Imp = unsafe extern fn();
 
 #[link(name = "objc", kind = "dylib")]
-extern "C" {
+extern {
     pub fn sel_registerName(name: *const c_char) -> Sel;
     pub fn sel_getName(sel: Sel) -> *const c_char;
 
@@ -113,29 +89,37 @@ extern "C" {
     pub fn class_copyIvarList(cls: *const Class, outCount: *mut c_uint) -> *mut *const Ivar;
     pub fn class_addMethod(cls: *mut Class, name: Sel, imp: Imp, types: *const c_char) -> BOOL;
     pub fn class_addIvar(cls: *mut Class, name: *const c_char, size: usize, alignment: u8, types: *const c_char) -> BOOL;
+    pub fn class_addProtocol(cls: *mut Class, proto: *const Protocol) -> BOOL;
+    pub fn class_conformsToProtocol(cls: *const Class, proto: *const Protocol) -> BOOL;
+    pub fn class_copyProtocolList(cls: *const Class, outCount: *mut c_uint) -> *mut *const Protocol;
 
     pub fn objc_allocateClassPair(superclass: *const Class, name: *const c_char, extraBytes: usize) -> *mut Class;
     pub fn objc_disposeClassPair(cls: *mut Class);
     pub fn objc_registerClassPair(cls: *mut Class);
 
+    pub fn class_createInstance(cls: *const Class, extraBytes: usize) -> *mut Object;
+    pub fn object_dispose(obj: *mut Object) -> *mut Object;
     pub fn object_getClass(obj: *const Object) -> *const Class;
 
     pub fn objc_getClassList(buffer: *mut *const Class, bufferLen: c_int) -> c_int;
     pub fn objc_copyClassList(outCount: *mut c_uint) -> *mut *const Class;
     pub fn objc_getClass(name: *const c_char) -> *const Class;
+    pub fn objc_getProtocol(name: *const c_char) -> *const Protocol;
+    pub fn objc_copyProtocolList(outCount: *mut c_uint) -> *mut *const Protocol;
+    pub fn objc_allocateProtocol(name: *const c_char) -> *mut Protocol;
+    pub fn objc_registerProtocol(proto: *mut Protocol);
+
+    pub fn protocol_addMethodDescription(proto: *mut Protocol, name: Sel, types: *const c_char, isRequiredMethod: BOOL,
+                                         isInstanceMethod: BOOL);
+    pub fn protocol_addProtocol(proto: *mut Protocol, addition: *const Protocol);
+    pub fn protocol_getName(proto: *const Protocol) -> *const c_char;
+    pub fn protocol_isEqual(proto: *const Protocol, other: *const Protocol) -> BOOL;
+    pub fn protocol_copyProtocolList(proto: *const Protocol, outCount: *mut c_uint) -> *mut *const Protocol;
+    pub fn protocol_conformsToProtocol(proto: *const Protocol, other: *const Protocol) -> BOOL;
 
     pub fn ivar_getName(ivar: *const Ivar) -> *const c_char;
     pub fn ivar_getOffset(ivar: *const Ivar) -> isize;
     pub fn ivar_getTypeEncoding(ivar: *const Ivar) -> *const c_char;
-
-    pub fn objc_msgSend(obj: *mut Object, op: Sel, ...) -> *mut Object;
-    #[cfg(target_arch = "x86")]
-    pub fn objc_msgSend_fpret(obj: *mut Object, op: Sel, ...) -> f64;
-    #[cfg(not(target_arch = "aarch64"))]
-    pub fn objc_msgSend_stret(obj: *mut Object, op: Sel, ...);
-    pub fn objc_msgSendSuper(sup: *const Super, op: Sel, ...) -> *mut Object;
-    #[cfg(not(target_arch = "aarch64"))]
-    pub fn objc_msgSendSuper_stret(sup: *const Super, op: Sel, ... );
 
     pub fn method_getName(method: *const Method) -> Sel;
     pub fn method_getImplementation(method: *const Method) -> Imp;
@@ -144,11 +128,6 @@ extern "C" {
     pub fn method_getNumberOfArguments(method: *const Method) -> c_uint;
     pub fn method_setImplementation(method: *mut Method, imp: Imp) -> Imp;
     pub fn method_exchangeImplementations(m1: *mut Method, m2: *mut Method);
-
-    #[cfg(feature="gnustep")]
-    pub fn objc_msg_lookup_sender(receiver: *mut *mut Object, selector: Sel, sender: *mut Object, ...) -> *mut Slot;
-    #[cfg(feature="gnustep")]
-    pub fn objc_slot_lookup_super(sup: *const Super, selector: Sel) -> *mut Slot;
 }
 
 impl Sel {
@@ -349,6 +328,20 @@ impl Class {
 
     }
 
+    /// Checks whether this class conforms to the specified protocol.
+    pub fn conforms_to(&self, proto: &Protocol) -> bool {
+        unsafe { class_conformsToProtocol(self, proto) == YES }
+    }
+
+    /// Get a list of the protocols to which this class conforms.
+    pub fn adopted_protocols(&self) -> MallocBuffer<&Protocol> {
+        unsafe {
+            let mut count: c_uint = 0;
+            let protos = class_copyProtocolList(self, &mut count);
+            MallocBuffer::new(protos as *mut _, count as usize).unwrap()
+        }
+    }
+
     /// Describes the instance variables declared by self.
     pub fn instance_variables(&self) -> MallocBuffer<&Ivar> {
         unsafe {
@@ -370,6 +363,63 @@ impl PartialEq for Class {
 impl Eq for Class { }
 
 impl fmt::Debug for Class {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+impl Protocol {
+    /// Returns the protocol definition of a specified protocol, or `None` if the
+    /// protocol is not registered with the Objective-C runtime.
+    pub fn get(name: &str) -> Option<&'static Protocol> {
+        let name = CString::new(name).unwrap();
+        unsafe {
+            let proto = objc_getProtocol(name.as_ptr());
+            if proto.is_null() { None } else { Some(&*proto) }
+        }
+    }
+
+    /// Obtains the list of registered protocol definitions.
+    pub fn protocols() -> MallocBuffer<&'static Protocol> {
+        unsafe {
+            let mut count: c_uint = 0;
+            let protocols = objc_copyProtocolList(&mut count);
+            MallocBuffer::new(protocols as *mut _, count as usize).unwrap()
+        }
+    }
+
+    /// Get a list of the protocols to which this protocol conforms.
+    pub fn adopted_protocols(&self) -> MallocBuffer<&Protocol> {
+        unsafe {
+            let mut count: c_uint = 0;
+            let protocols = protocol_copyProtocolList(self, &mut count);
+            MallocBuffer::new(protocols as *mut _, count as usize).unwrap()
+        }
+    }
+
+    /// Checks whether this protocol conforms to the specified protocol.
+    pub fn conforms_to(&self, proto: &Protocol) -> bool {
+        unsafe { protocol_conformsToProtocol(self, proto) == YES }
+    }
+
+    /// Returns the name of self.
+    pub fn name(&self) -> &str {
+        let name = unsafe {
+            CStr::from_ptr(protocol_getName(self))
+        };
+        str::from_utf8(name.to_bytes()).unwrap()
+    }
+}
+
+impl PartialEq for Protocol {
+    fn eq(&self, other: &Protocol) -> bool {
+        unsafe { protocol_isEqual(self, other) == YES }
+    }
+}
+
+impl Eq for Protocol { }
+
+impl fmt::Debug for Protocol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name())
     }
@@ -448,15 +498,15 @@ impl fmt::Debug for Object {
 mod tests {
     use test_utils;
     use Encode;
-    use super::{Class, Object, Sel};
+    use super::{Class, Protocol, Sel};
 
     #[test]
     fn test_ivar() {
-        let cls = Class::get("NSObject").unwrap();
-        let ivar = cls.instance_variable("isa").unwrap();
-        assert!(ivar.name() == "isa");
-        assert!(ivar.type_encoding() == <*const Class>::encode());
-        assert!(ivar.offset() == 0);
+        let cls = test_utils::custom_class();
+        let ivar = cls.instance_variable("_foo").unwrap();
+        assert!(ivar.name() == "_foo");
+        assert!(ivar.type_encoding() == <u32>::encode());
+        assert!(ivar.offset() > 0);
 
         let ivars = cls.instance_variables();
         assert!(ivars.len() > 0);
@@ -464,13 +514,13 @@ mod tests {
 
     #[test]
     fn test_method() {
-        let cls = Class::get("NSObject").unwrap();
-        let sel = Sel::register("description");
+        let cls = test_utils::custom_class();
+        let sel = Sel::register("foo");
         let method = cls.instance_method(sel).unwrap();
-        assert!(method.name().name() == "description");
+        assert!(method.name().name() == "foo");
         assert!(method.arguments_count() == 2);
-        assert!(method.return_type() == <*mut Object>::encode());
-        assert_eq!(method.argument_type(1).unwrap(), Sel::encode());
+        assert!(method.return_type() == <u32>::encode());
+        assert!(method.argument_type(1).unwrap() == Sel::encode());
 
         let methods = cls.instance_methods();
         assert!(methods.len() > 0);
@@ -478,15 +528,16 @@ mod tests {
 
     #[test]
     fn test_class() {
-        let cls = Class::get("NSObject").unwrap();
-        assert!(cls.name() == "NSObject");
-        assert!(cls.instance_size() == ::std::mem::size_of::<*const Class>());
+        let cls = test_utils::custom_class();
+        assert!(cls.name() == "CustomObject");
+        assert!(cls.instance_size() > 0);
         assert!(cls.superclass().is_none());
 
         let metaclass = cls.metaclass();
-        assert!(metaclass.instance_size() > 0);
+        // The metaclass of a root class is a subclass of the root class
+        assert!(metaclass.superclass().unwrap() == cls);
 
-        let subclass = test_utils::custom_class();
+        let subclass = test_utils::custom_subclass();
         assert!(subclass.superclass().unwrap() == cls);
     }
 
@@ -498,11 +549,50 @@ mod tests {
     }
 
     #[test]
+    fn test_protocol() {
+        let proto = test_utils::custom_protocol();
+        assert!(proto.name() == "CustomProtocol");
+        let class = test_utils::custom_class();
+        assert!(class.conforms_to(proto));
+        let class_protocols = class.adopted_protocols();
+        assert!(class_protocols.len() > 0);
+    }
+
+    #[test]
+    fn test_protocol_method() {
+        let class = test_utils::custom_class();
+        let result: i32 = unsafe {
+            msg_send![class, addNumber:1 toNumber:2]
+        };
+        assert_eq!(result, 3);
+    }
+
+    #[test]
+    fn test_subprotocols() {
+        let sub_proto = test_utils::custom_subprotocol();
+        let super_proto = test_utils::custom_protocol();
+        assert!(sub_proto.conforms_to(super_proto));
+        let adopted_protocols = sub_proto.adopted_protocols();
+        assert_eq!(adopted_protocols[0], super_proto);
+    }
+
+    #[test]
+    fn test_protocols() {
+        // Ensure that a protocol has been registered on linux
+        let _ = test_utils::custom_protocol();
+
+        let protocols = Protocol::protocols();
+        assert!(protocols.len() > 0);
+    }
+
+    #[test]
     fn test_object() {
-        let cls = Class::get("NSObject").unwrap();
-        let obj = test_utils::sample_object();
-        assert!(obj.class() == cls);
-        let isa: *const Class = unsafe { *obj.get_ivar("isa") };
-        assert!(!isa.is_null());
+        let mut obj = test_utils::custom_object();
+        assert!(obj.class() == test_utils::custom_class());
+        let result: u32 = unsafe {
+            obj.set_ivar("_foo", 4u32);
+            *obj.get_ivar("_foo")
+        };
+        assert!(result == 4);
     }
 }

@@ -5,7 +5,7 @@ Objective-C Runtime bindings and wrapper for Rust.
 
 Objective-C objects can be messaged using the [`msg_send!`](macro.msg_send!.html) macro:
 
-```no_run
+``` no_run
 # #[macro_use] extern crate objc;
 # use objc::runtime::{BOOL, Class, Object};
 # fn main() {
@@ -32,6 +32,27 @@ will unwind into Rust resulting in unsafe, undefined behavior.
 However, this crate has an `"exception"` feature which, when enabled, wraps
 each `msg_send!` in a `@try`/`@catch` and panics if an exception is caught,
 preventing Objective-C from unwinding into Rust.
+
+# Message type verification
+
+The Objective-C runtime includes encodings for each method that describe the
+argument and return types. This crate can take advantage of these encodings to
+verify that the types used in Rust match the types encoded for the method.
+
+To use this functionality, enable the `"verify_message"` feature.
+With this feature enabled, type checking is performed for every message send,
+which also requires that all arguments and return values for all messages
+implement `Encode`.
+
+If this requirement is burdensome or you'd rather
+just verify specific messages, you can call the
+[`Message::verify_message`](trait.Message.html#method.verify_message) method
+for specific selectors.
+
+# Support for other Operating Systems
+
+The bindings can be used on Linux or *BSD utilizing the
+[GNUstep Objective-C runtime](https://www.github.com/gnustep/libobjc2).
 */
 
 #![crate_name = "objc"]
@@ -43,8 +64,8 @@ extern crate malloc_buf;
 #[cfg(feature = "exception")]
 extern crate objc_exception;
 
-pub use encode::{Encode, Encoding};
-pub use message::{Message, MessageArguments};
+pub use encode::{Encode, EncodeArguments, Encoding};
+pub use message::{Message, MessageArguments, MessageError};
 
 pub use message::send_message as __send_message;
 pub use message::send_super_message as __send_super_message;
@@ -57,9 +78,9 @@ pub mod declare;
 mod encode;
 #[cfg(feature = "exception")]
 mod exception;
+#[cfg(feature = "exception")]
 mod id;
 mod message;
-mod verify;
 
 #[cfg(test)]
 mod test_utils;

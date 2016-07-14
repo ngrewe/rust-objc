@@ -197,6 +197,50 @@ encode_message_impl!("@", Object);
 
 encode_message_impl!("#", Class);
 
+/// Types that represent a group of arguments, where each has an Objective-C
+/// type encoding.
+pub trait EncodeArguments {
+    /// The type as which the encodings for Self will be returned.
+    type Encs: AsRef<[Encoding]>;
+
+    /// Returns the Objective-C type encodings for Self.
+    fn encodings() -> Self::Encs;
+}
+
+macro_rules! count_idents {
+    () => (0);
+    ($a:ident) => (1);
+    ($a:ident, $($b:ident),+) => (1 + count_idents!($($b),*));
+}
+
+macro_rules! encode_args_impl {
+    ($($t:ident),*) => (
+        impl<$($t: Encode),*> EncodeArguments for ($($t,)*) {
+            type Encs = [Encoding; count_idents!($($t),*)];
+
+            fn encodings() -> Self::Encs {
+                [
+                    $($t::encode()),*
+                ]
+            }
+        }
+    );
+}
+
+encode_args_impl!();
+encode_args_impl!(A);
+encode_args_impl!(A, B);
+encode_args_impl!(A, B, C);
+encode_args_impl!(A, B, C, D);
+encode_args_impl!(A, B, C, D, E);
+encode_args_impl!(A, B, C, D, E, F);
+encode_args_impl!(A, B, C, D, E, F, G);
+encode_args_impl!(A, B, C, D, E, F, G, H);
+encode_args_impl!(A, B, C, D, E, F, G, H, I);
+encode_args_impl!(A, B, C, D, E, F, G, H, I, J);
+encode_args_impl!(A, B, C, D, E, F, G, H, I, J, K);
+encode_args_impl!(A, B, C, D, E, F, G, H, I, J, K, L);
+
 #[cfg(test)]
 mod tests {
     use runtime::{Class, Object, Sel};
