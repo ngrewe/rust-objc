@@ -39,13 +39,15 @@ preventing Objective-C from unwinding into Rust.
 
 #![warn(missing_docs)]
 
-extern crate libc;
 extern crate malloc_buf;
 #[cfg(feature = "exception")]
 extern crate objc_exception;
 
 pub use encode::{Encode, Encoding};
 pub use message::{Message, MessageArguments};
+
+pub use message::send_message as __send_message;
+pub use message::send_super_message as __send_super_message;
 
 #[macro_use]
 mod macros;
@@ -55,9 +57,9 @@ pub mod declare;
 mod encode;
 #[cfg(feature = "exception")]
 mod exception;
-#[cfg(any(test, feature = "exception"))]
 mod id;
 mod message;
+mod verify;
 
 #[cfg(test)]
 mod test_utils;

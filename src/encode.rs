@@ -1,10 +1,20 @@
 use std::ffi::CStr;
 use std::fmt;
+use std::os::raw::{c_char, c_void};
 use std::str;
-use libc::{c_char, c_void};
 use malloc_buf::MallocBuffer;
 
 use runtime::{Class, Object, Sel};
+
+const QUALIFIERS: &'static [char] = &[
+    'r', // const
+    'n', // in
+    'N', // inout
+    'o', // out
+    'O', // bycopy
+    'R', // byref
+    'V', // oneway
+];
 
 #[cfg(target_pointer_width = "64")]
 const CODE_INLINE_CAP: usize = 30;
@@ -61,7 +71,10 @@ impl Clone for Encoding {
 
 impl PartialEq for Encoding {
     fn eq(&self, other: &Encoding) -> bool {
-        self.as_str() == other.as_str()
+        // strip qualifiers when comparing
+        let s = self.as_str().trim_left_matches(QUALIFIERS);
+        let o = other.as_str().trim_left_matches(QUALIFIERS);
+        s == o
     }
 }
 
@@ -77,7 +90,7 @@ pub fn from_static_str(code: &'static str) -> Encoding {
 
 pub fn from_str(code: &str) -> Encoding {
     if code.len() > CODE_INLINE_CAP {
-        Encoding { code: Code::Owned(code.to_string()) }
+        Encoding { code: Code::Owned(code.to_owned()) }
     } else {
         let mut bytes = [0; CODE_INLINE_CAP];
         for (dst, byte) in bytes.iter_mut().zip(code.bytes()) {

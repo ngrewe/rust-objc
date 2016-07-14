@@ -1,6 +1,6 @@
 [package]
 name = "objc"
-version = "0.1.7"
+version = "0.1.8"
 authors = ["Steven Sheldon"]
 
 description = "Objective-C Runtime bindings and wrapper for Rust."
@@ -10,18 +10,18 @@ repository = "http://github.com/SSheldon/rust-objc"
 documentation = "http://ssheldon.github.io/rust-objc/objc/"
 license = "MIT"
 
-exclude = [".gitignore", ".travis.yml", "ios-tests/**", "xtests/**"]
+exclude = [".gitignore", "ios-tests/**", "xtests/**", ".travis.yml"]
 
 [features]
 exception = ["objc_exception"]
+verify_message = []
 gnustep = [ "test_ns_object/gnustep" ]
 
 [dependencies]
-libc = "0.1"
 malloc_buf = "0.0"
 
 [dependencies.objc_exception]
-version = "0.0"
+version = "0.1"
 optional = true
 
 [dev-dependencies.test_ns_object]

@@ -38,10 +38,10 @@ use std::error::Error;
 use std::ffi::CString;
 use std::fmt;
 use std::mem;
-use libc::size_t;
 
-use {Encode, Encoding, Message};
+use {Encode, Message};
 use runtime::{Class, Imp, NO, Object, Sel, self};
+use verify::EncodeArguments;
 
 /// An error returned from `MethodImplementation::imp_for` to indicate that a
 /// selector and function accept unequal numbers of arguments.
@@ -71,8 +71,7 @@ pub trait MethodImplementation {
     /// The return type of the method.
     type Ret: Encode;
 
-    /// Returns the type encodings of Self's arguments.
-    fn argument_encodings() -> Box<[Encoding]>;
+    type Args: EncodeArguments;
 
     /// Returns self as an `Imp` of a method for the given selector.
     ///
@@ -81,26 +80,13 @@ pub trait MethodImplementation {
     fn imp_for(self, sel: Sel) -> Result<Imp, UnequalArgsError>;
 }
 
-macro_rules! count_idents {
-    () => (0);
-    ($a:ident) => (1);
-    ($a:ident, $($b:ident),+) => (1 + count_idents!($($b),*));
-}
-
 macro_rules! method_decl_impl {
     (-$s:ident, $r:ident, $f:ty, $($t:ident),*) => (
         impl<$s, $r $(, $t)*> MethodImplementation for $f
                 where $s: Message, $r: Encode $(, $t: Encode)* {
             type Callee = $s;
             type Ret = $r;
-
-            fn argument_encodings() -> Box<[Encoding]> {
-                Box::new([
-                    <*mut Object>::encode(),
-                    Sel::encode(),
-                    $($t::encode()),*
-                ])
-            }
+            type Args = ($($t,)*);
 
             fn imp_for(self, sel: Sel) -> Result<Imp, UnequalArgsError> {
                 // Add 2 to the arguments for self and _cmd
@@ -135,8 +121,8 @@ method_decl_impl!(A, B, C, D, E, F, G, H, I, J, K);
 method_decl_impl!(A, B, C, D, E, F, G, H, I, J, K, L);
 
 fn method_type_encoding<F>() -> CString where F: MethodImplementation {
-    let mut types = F::Ret::encode().as_str().to_string();
-    types.extend(F::argument_encodings().iter().map(|e| e.as_str()));
+    let mut types = F::Ret::encode().as_str().to_owned();
+    types.extend(F::Args::encodings().as_ref().iter().map(|e| e.as_str()));
     CString::new(types).unwrap()
 }
 
@@ -204,7 +190,7 @@ impl ClassDecl {
     pub fn add_ivar<T>(&mut self, name: &str) where T: Encode {
         let c_name = CString::new(name).unwrap();
         let encoding = CString::new(T::encode().as_str()).unwrap();
-        let size = mem::size_of::<T>() as size_t;
+        let size = mem::size_of::<T>();
         let align = mem::align_of::<T>() as u8;
         let success = unsafe {
             runtime::class_addIvar(self.cls, c_name.as_ptr(), size, align,
